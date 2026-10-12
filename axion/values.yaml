@@ -1,0 +1,262 @@
+# Default values for axion Helm chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# ==============================================================================
+# Global & Namespace Configuration
+# ==============================================================================
+namespace:
+  create: true
+  name: "axion"
+
+# ==============================================================================
+# PostgreSQL Database Configuration
+# ==============================================================================
+postgres:
+  enabled: true
+  replicaCount: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 2
+
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+
+  auth:
+    username: "axion_user"
+    password: "Admin@1234"
+    database: "axion_db"
+
+  service:
+    name: "postgres-service"
+    type: LoadBalancer
+    port: 5432
+    targetPort: 5432
+
+  # Automatic database initialization (creates pgcrypto extension & telemetry table)
+  initdb:
+    enabled: true
+
+  persistence:
+    enabled: false
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+    storageClass: ""
+
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+  # If using external RDS or managed Postgres, set enabled: true
+  externalDatabase:
+    enabled: false
+    url: ""
+
+# ==============================================================================
+# Axion Ingestion Service (FastAPI)
+# Ingests telemetry data from IoT devices & stores in PostgreSQL
+# ==============================================================================
+ingestion:
+  enabled: true
+  replicaCount: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+  image:
+    repository: rishi7211/ingestion
+    tag: "v1"
+    pullPolicy: Always
+
+  service:
+    name: "ingestion-service"
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+  # Override database URL if needed; defaults to PostgreSQL service above
+  databaseUrl: ""
+
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ==============================================================================
+# Axion Telemetry Query Service (FastAPI)
+# Provides APIs for dashboards, trends, anomaly queries & digital twin
+# ==============================================================================
+telemetryQuery:
+  enabled: true
+  replicaCount: 5
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+  image:
+    repository: rishi7211/telemetry
+    tag: "v1"
+    pullPolicy: Always
+
+  service:
+    name: "telemetry-query-service"
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+  port: 8000
+
+  # Override database URL if needed; defaults to PostgreSQL service above
+  databaseUrl: ""
+
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ==============================================================================
+# Axion Data Simulator
+# Generates realistic synthetic sensor telemetry across industrial refinery plants
+# ==============================================================================
+simulator:
+  enabled: true
+  replicaCount: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+  image:
+    repository: rishi7211/simulator
+    tag: "v1"
+    pullPolicy: Always
+
+  intervalSeconds: 5
+
+  # Override ingestion endpoint; defaults to http://ingestion-service:8000/api/v1/telemetry/ingest
+  apiUrl: ""
+
+  resources:
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+
+# ==============================================================================
+# Axion UI (React / Vite Frontend served with Nginx)
+# ==============================================================================
+ui:
+  enabled: true
+  replicaCount: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  image:
+    repository: rishi7211/axion-ui
+    tag: "v3"
+    pullPolicy: Always
+
+  service:
+    name: "axion-ui-service"
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  resources:
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+
+# ==============================================================================
+# pgAdmin (Database Administration Web UI - Optional)
+# ==============================================================================
+pgadmin:
+  enabled: false
+  replicaCount: 1
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+  image:
+    repository: dpage/pgadmin4
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  email: "admin@axion.com"
+  password: "Admin@1234"
+
+  service:
+    name: "pgadmin-service"
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ==============================================================================
+# Ingress (AWS ALB Ingress Controller configuration)
+# ==============================================================================
+ingress:
+  enabled: true
+  name: "axion-ingress"
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/healthcheck-path: "/devices"
+  rules:
+    - host: "axionaws.rishikesharma.online"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: "axion-ui-service"
+          servicePort: 80
+    - host: "backendaws.rishikesharma.online"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: "telemetry-query-service"
+          servicePort: 8000
+  tls: []

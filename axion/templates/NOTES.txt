@@ -1,0 +1,46 @@
+🚀 Axion IoT Telemetry Platform has been deployed successfully!
+
+Release Name: {{ .Release.Name }}
+Namespace:    {{ .Values.namespace.name | default .Release.Namespace }}
+
+--------------------------------------------------------------------------------
+1. Check Deployment & Pod Status:
+--------------------------------------------------------------------------------
+  kubectl get pods -n {{ .Values.namespace.name | default .Release.Namespace }} -o wide
+  kubectl get svc -n {{ .Values.namespace.name | default .Release.Namespace }}
+  kubectl get ingress -n {{ .Values.namespace.name | default .Release.Namespace }}
+
+--------------------------------------------------------------------------------
+2. Ingress Access URLs:
+--------------------------------------------------------------------------------
+{{- if .Values.ingress.enabled }}
+  Frontend URL: http://{{ (index .Values.ingress.rules 0).host }}
+  Backend API:  http://{{ (index .Values.ingress.rules 1).host }}
+
+  Check ALB Ingress Address:
+  kubectl get ingress {{ .Values.ingress.name | default "axion-ingress" }} -n {{ .Values.namespace.name | default .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+{{- else }}
+  Ingress is currently disabled.
+{{- end }}
+
+--------------------------------------------------------------------------------
+3. Port-Forward for Local Testing:
+--------------------------------------------------------------------------------
+  Frontend UI:
+    kubectl port-forward svc/{{ include "axion.uiServiceName" . }} 3000:{{ .Values.ui.service.port }} -n {{ .Values.namespace.name | default .Release.Namespace }}
+    Visit: http://localhost:3000
+
+  Backend Telemetry Query API:
+    kubectl port-forward svc/{{ include "axion.telemetryQueryServiceName" . }} 8000:{{ .Values.telemetryQuery.service.port }} -n {{ .Values.namespace.name | default .Release.Namespace }}
+    Visit: http://localhost:8000/docs (Swagger UI)
+
+  PostgreSQL Database:
+    kubectl port-forward svc/{{ include "axion.postgresServiceName" . }} 5432:{{ .Values.postgres.service.port }} -n {{ .Values.namespace.name | default .Release.Namespace }}
+
+--------------------------------------------------------------------------------
+4. PostgreSQL Connection String:
+--------------------------------------------------------------------------------
+  Host:     {{ include "axion.postgresServiceName" . }}
+  Port:     {{ .Values.postgres.service.port }}
+  User:     {{ .Values.postgres.auth.username }}
+  Database: {{ .Values.postgres.auth.database }}

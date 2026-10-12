@@ -1,0 +1,73 @@
+{{- if and .Values.postgres.enabled (not .Values.postgres.externalDatabase.enabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.postgres.deploymentName | default "postgres-deployment" }}
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- include "axion.labels" . | nindent 4 }}
+    app: postgres
+spec:
+  replicas: {{ .Values.postgres.replicaCount }}
+  {{- with .Values.postgres.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "axion.labels" . | nindent 8 }}
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.postgres.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axion.fullname" . }}-postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axion.fullname" . }}-postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "axion.fullname" . }}-postgres-secret
+                  key: POSTGRES_DB
+          {{- with .Values.postgres.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.postgres.initdb.enabled }}
+            - name: initdb-scripts
+              mountPath: /docker-entrypoint-initdb.d
+            {{- end }}
+            {{- if .Values.postgres.persistence.enabled }}
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            {{- end }}
+      volumes:
+        {{- if .Values.postgres.initdb.enabled }}
+        - name: initdb-scripts
+          configMap:
+            name: {{ include "axion.fullname" . }}-postgres-initdb
+        {{- end }}
+        {{- if .Values.postgres.persistence.enabled }}
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: {{ include "axion.fullname" . }}-postgres-data
+        {{- end }}
+{{- end }}

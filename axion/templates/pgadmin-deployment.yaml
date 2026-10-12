@@ -1,0 +1,42 @@
+{{- if .Values.pgadmin.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.pgadmin.deploymentName | default "pgadmin-deployment" }}
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- include "axion.labels" . | nindent 4 }}
+    app: pgadmin
+spec:
+  replicas: {{ .Values.pgadmin.replicaCount }}
+  {{- with .Values.pgadmin.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: pgadmin
+  template:
+    metadata:
+      labels:
+        {{- include "axion.labels" . | nindent 8 }}
+        app: pgadmin
+    spec:
+      containers:
+        - name: pgadmin
+          image: "{{ .Values.pgadmin.image.repository }}:{{ .Values.pgadmin.image.tag }}"
+          imagePullPolicy: {{ .Values.pgadmin.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.pgadmin.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: {{ .Values.pgadmin.email | quote }}
+            - name: PGADMIN_DEFAULT_PASSWORD
+              value: {{ .Values.pgadmin.password | quote }}
+          {{- with .Values.pgadmin.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

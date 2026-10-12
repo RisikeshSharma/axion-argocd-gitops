@@ -1,0 +1,40 @@
+{{- if .Values.ingestion.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.ingestion.deploymentName | default "ingestion-deployment" }}
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- include "axion.labels" . | nindent 4 }}
+    app: ingestion
+spec:
+  replicas: {{ .Values.ingestion.replicaCount }}
+  {{- with .Values.ingestion.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: ingestion
+  template:
+    metadata:
+      labels:
+        {{- include "axion.labels" . | nindent 8 }}
+        app: ingestion
+    spec:
+      containers:
+        - name: ingestion
+          image: "{{ .Values.ingestion.image.repository }}:{{ .Values.ingestion.image.tag }}"
+          imagePullPolicy: {{ .Values.ingestion.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ingestion.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.ingestion.databaseUrl | default (include "axion.databaseUrl" .) | quote }}
+          {{- with .Values.ingestion.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

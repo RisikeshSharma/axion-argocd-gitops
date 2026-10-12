@@ -1,0 +1,71 @@
+# Production Environment Overrides (AWS EKS)
+# Use with: helm install axion ./helm/axion -f ./helm/axion/values-prod.yaml
+
+namespace:
+  create: true
+  name: "axion"
+
+postgres:
+  replicaCount: 1 # In production single instance with persistent volume prevents data desync
+  persistence:
+    enabled: true
+    storageClass: "gp3" # AWS EBS CSI driver storage class
+    size: 20Gi
+  service:
+    type: ClusterIP # Internal within the cluster for security
+
+ingestion:
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+telemetryQuery:
+  replicaCount: 5
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+simulator:
+  replicaCount: 2
+  intervalSeconds: 5
+
+ui:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/healthcheck-path: "/devices"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  rules:
+    - host: "axionaws.rishikesharma.online"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: "axion-ui-service"
+          servicePort: 80
+    - host: "backendaws.rishikesharma.online"
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: "telemetry-query-service"
+          servicePort: 8000

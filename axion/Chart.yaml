@@ -1,0 +1,17 @@
+apiVersion: v2
+name: axion
+description: Helm chart for Axion IoT Telemetry, Analytics & Digital Twin Platform on Kubernetes / AWS EKS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - iot
+  - telemetry
+  - digital-twin
+  - analytics
+  - postgres
+  - eks
+icon: https://raw.githubusercontent.com/devopsinsiders/axion-ui/main/public/favicon.svg
+maintainers:
+  - name: Rishikesh Sharma
+    email: rishi7211@users.noreply.github.com

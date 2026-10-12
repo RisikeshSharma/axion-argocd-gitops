@@ -1,0 +1,42 @@
+{{- if .Values.telemetryQuery.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.telemetryQuery.deploymentName | default "telemetry-query-deployment" }}
+  namespace: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- include "axion.labels" . | nindent 4 }}
+    app: telemetry-query
+spec:
+  replicas: {{ .Values.telemetryQuery.replicaCount }}
+  {{- with .Values.telemetryQuery.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: telemetry-query
+  template:
+    metadata:
+      labels:
+        {{- include "axion.labels" . | nindent 8 }}
+        app: telemetry-query
+    spec:
+      containers:
+        - name: telemetry-query
+          image: "{{ .Values.telemetryQuery.image.repository }}:{{ .Values.telemetryQuery.image.tag }}"
+          imagePullPolicy: {{ .Values.telemetryQuery.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.telemetryQuery.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.telemetryQuery.databaseUrl | default (include "axion.databaseUrl" .) | quote }}
+            - name: PORT
+              value: {{ .Values.telemetryQuery.port | default 8000 | quote }}
+          {{- with .Values.telemetryQuery.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
